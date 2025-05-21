@@ -15,15 +15,19 @@ class MainActivity : AppCompatActivity() {
 
     private val subjectOptions = listOf("Differential", "Python", "OOPS", "Calculus", "Java")
     private val creditOptions = listOf("1", "1.5", "2", "3", "4")
-    private val gradeSystem = mapOf(
-        Pair(90, 10.0 to "S"),
-        Pair(80, 9.0 to "A"),
-        Pair(70, 8.0 to "B"),
-        Pair(60, 7.0 to "C"),
-        Pair(50, 6.0 to "D"),
-        Pair(40, 5.0 to "E"),
-        Pair(0, 0.0 to "F")
+
+    // Simplified grade system using a list
+    private val gradeSystem = listOf(
+        Grade(90, 10.0, "S"),
+        Grade(80, 9.0, "A"),
+        Grade(70, 8.0, "B"),
+        Grade(60, 7.0, "C"),
+        Grade(50, 6.0, "D"),
+        Grade(40, 5.0, "E"),
+        Grade(0, 0.0, "F")
     )
+
+    data class Grade(val minMarks: Int, val point: Double, val letter: String)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,10 +43,9 @@ class MainActivity : AppCompatActivity() {
 
             if (number == null || number < 1 || number > 5) {
                 Toast.makeText(this, "Please enter a number between 1 and 5", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+            } else {
+                generateRows(number)
             }
-
-            generateRows(number)
         }
     }
 
@@ -56,111 +59,102 @@ class MainActivity : AppCompatActivity() {
             rowView.setPadding(32, 32, 32, 32)
 
             val inputField = rowView.findViewById<EditText>(R.id.inputField)
-            val spinner1 = rowView.findViewById<Spinner>(R.id.spinner1)
-            val spinner2 = rowView.findViewById<Spinner>(R.id.spinner2)
+            val subjectSpinner = rowView.findViewById<Spinner>(R.id.spinner1)
+            val creditSpinner = rowView.findViewById<Spinner>(R.id.spinner2)
 
             inputField.setTextColor(Color.WHITE)
             inputField.setHintTextColor(Color.LTGRAY)
             inputField.hint = "Enter marks (0-100)"
 
-            val subjectAdapter = ArrayAdapter(
+            subjectSpinner.adapter = ArrayAdapter(
                 this,
                 android.R.layout.simple_spinner_item,
                 listOf("Subject") + subjectOptions
-            ).apply {
-                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
+            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
-            val creditAdapter = ArrayAdapter(
+            creditSpinner.adapter = ArrayAdapter(
                 this,
                 android.R.layout.simple_spinner_item,
                 listOf("Credits") + creditOptions
-            ).apply {
-                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            }
+            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
-            spinner1.adapter = subjectAdapter
-            spinner2.adapter = creditAdapter
-
-            spinner1.setPopupBackgroundResource(android.R.color.black)
-            spinner2.setPopupBackgroundResource(android.R.color.black)
+            subjectSpinner.setPopupBackgroundResource(android.R.color.black)
+            creditSpinner.setPopupBackgroundResource(android.R.color.black)
 
             containerLayout.addView(rowView)
         }
 
-        val resultButtonView = layoutInflater.inflate(R.layout.button_result, containerLayout, false) as Button
-        resultButtonView.setOnClickListener {
-            if (validateAndShowResults()) {
+        val resultButton = layoutInflater.inflate(R.layout.button_result, containerLayout, false) as Button
+        resultButton.setOnClickListener {
+            if (validateInputs()) {
                 showResultsDialog()
             }
         }
-        containerLayout.addView(resultButtonView)
+
+        containerLayout.addView(resultButton)
     }
 
-    private fun validateAndShowResults(): Boolean {
-        var allValid = true
-        val errorMessage = StringBuilder()
+    private fun validateInputs(): Boolean {
+        var valid = true
+        val error = StringBuilder()
 
         for (i in 0 until containerLayout.childCount - 1) {
             val row = containerLayout.getChildAt(i) as? LinearLayout ?: continue
             val inputField = row.findViewById<EditText>(R.id.inputField)
-            val spinner1 = row.findViewById<Spinner>(R.id.spinner1)
-            val spinner2 = row.findViewById<Spinner>(R.id.spinner2)
+            val subjectSpinner = row.findViewById<Spinner>(R.id.spinner1)
+            val creditSpinner = row.findViewById<Spinner>(R.id.spinner2)
 
-            if (spinner1.selectedItemPosition == 0) {
-                allValid = false
-                errorMessage.append("• Row ${i+1}: Please select a subject\n")
+            if (subjectSpinner.selectedItemPosition == 0) {
+                valid = false
+                error.append("• Row ${i + 1}: Please select a subject\n")
             }
 
-            if (spinner2.selectedItemPosition == 0) {
-                allValid = false
-                errorMessage.append("• Row ${i+1}: Please select credit value\n")
+            if (creditSpinner.selectedItemPosition == 0) {
+                valid = false
+                error.append("• Row ${i + 1}: Please select credit value\n")
             }
 
             val marksText = inputField.text.toString()
-            if (marksText.isBlank()) {
-                allValid = false
-                errorMessage.append("• Row ${i+1}: Please enter marks\n")
-            } else {
-                val marks = marksText.toIntOrNull()
-                if (marks == null || marks < 0 || marks > 100) {
-                    allValid = false
-                    errorMessage.append("• Row ${i+1}: Marks must be between 0-100\n")
-                }
+            val marks = marksText.toIntOrNull()
+
+            if (marksText.isBlank() || marks == null || marks < 0 || marks > 100) {
+                valid = false
+                error.append("• Row ${i + 1}: Marks must be between 0 and 100\n")
             }
         }
 
-        if (!allValid) {
-            Toast.makeText(this, errorMessage.toString(), Toast.LENGTH_LONG).show()
+        if (!valid) {
+            Toast.makeText(this, error.toString(), Toast.LENGTH_LONG).show()
         }
-        return allValid
+
+        return valid
     }
 
     private fun showResultsDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_result, null)
-        val dialogTitle = dialogView.findViewById<TextView>(R.id.dialogTitle)
-        val dialogMessage = dialogView.findViewById<TextView>(R.id.dialogMessage)
+        val title = dialogView.findViewById<TextView>(R.id.dialogTitle)
+        val message = dialogView.findViewById<TextView>(R.id.dialogMessage)
 
-        var totalGradePoints = 0.0
+        var totalPoints = 0.0
         var totalCredits = 0.0
 
         for (i in 0 until containerLayout.childCount - 1) {
-            val row = containerLayout.getChildAt(i) as? LinearLayout ?: continue
+            val row = containerLayout.getChildAt(i) as LinearLayout
             val inputField = row.findViewById<EditText>(R.id.inputField)
             val creditSpinner = row.findViewById<Spinner>(R.id.spinner2)
 
-            val marks = inputField.text.toString().toIntOrNull() ?: 0
-            val credit = creditSpinner.selectedItem.toString().toDouble()
+            val marks = inputField.text.toString().toInt()
+            val credits = creditSpinner.selectedItem.toString().toDouble()
 
-            val (gradePoint, _) = getGradePoint(marks)
-            totalGradePoints += gradePoint * credit
-            totalCredits += credit
+            val gradePoint = getGradePoint(marks)
+            totalPoints += gradePoint * credits
+            totalCredits += credits
         }
 
-        val gpa = if (totalCredits > 0) totalGradePoints / totalCredits else 0.0
+        val gpa = if (totalCredits > 0) totalPoints / totalCredits else 0.0
 
-        dialogTitle.text = "GPA Results"
-        dialogMessage.text = "Your GPA: ${"%.2f".format(gpa)}"
+        title.text = "GPA Results"
+        message.text = "Your GPA: %.2f".format(gpa)
 
         AlertDialog.Builder(this)
             .setView(dialogView)
@@ -168,8 +162,12 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun getGradePoint(marks: Int): Pair<Double, String> {
-        return gradeSystem.entries.firstOrNull { marks >= it.key }?.value
-            ?: (0.0 to "F")
+    private fun getGradePoint(marks: Int): Double {
+        for (grade in gradeSystem) {
+            if (marks >= grade.minMarks) {
+                return grade.point
+            }
+        }
+        return 0.0
     }
 }
